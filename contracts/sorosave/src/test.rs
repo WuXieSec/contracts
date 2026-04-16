@@ -305,10 +305,14 @@ fn test_emergency_withdraw_unequal_contributions_proportional_and_no_stuck_funds
     let m4_delta = b_m4_after - b_m4_before;
 
     // admin/member1 each contributed 3 times; others 2 times.
-    assert!(admin_delta >= m2_delta);
-    assert!(m1_delta >= m2_delta);
-    assert_eq!(m2_delta, m3_delta);
-    assert_eq!(m3_delta, m4_delta);
+    // With 12 total contributions recorded, the final 2-token pot should split as:
+    // 0.5 token each to admin/member1, 0.3333333 token each to member2/3/4,
+    // plus the 0.0000001 rounding remainder to the first top contributor (admin).
+    assert_eq!(admin_delta, 500_001);
+    assert_eq!(m1_delta, 500_000);
+    assert_eq!(m2_delta, 333_333);
+    assert_eq!(m3_delta, 333_333);
+    assert_eq!(m4_delta, 333_333);
 
     let contract_after = token_client.balance(&contract_addr);
     assert_eq!(contract_after, 0);
