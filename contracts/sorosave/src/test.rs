@@ -222,3 +222,52 @@ fn test_set_group_admin() {
     let group = client.get_group(&group_id);
     assert_eq!(group.admin, new_admin);
 }
+
+#[test]
+fn test_admin_transfer_permissions() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+
+    let member1 = Address::generate(&env);
+    client.join_group(&member1, &group_id);
+    client.start_group(&admin, &group_id);
+
+    // Transfer admin to new address
+    let new_admin = Address::generate(&env);
+    client.set_group_admin(&admin, &group_id, &new_admin);
+
+    // Verify admin was transferred
+    let group = client.get_group(&group_id);
+    assert_eq!(group.admin, new_admin);
+
+    // Verify old admin cannot pause
+    let result = std::panic::catch_unwind(|| {
+        client.pause_group(&admin, &group_id);
+    });
+    assert!(result.is_err(), "Old admin should not be able to pause");
+
+    // Verify new admin can pause
+    client.pause_group(&new_admin, &group_id);
+    assert_eq!(client.get_group(&group_id).status, GroupStatus::Paused);
+
+    // Verify new admin can resume
+    client.resume_group(&new_admin, &group_id);
+    assert_eq!(client.get_group(&group_id).status, GroupStatus::Active);
+
+    // Test double transfer scenario
+    let third_admin = Address::generate(&env);
+    client.set_group_admin(&new_admin, &group_id, &third_admin);
+    
+    let group = client.get_group(&group_id);
+    assert_eq!(group.admin, third_admin);
+
+    // Verify second admin (new_admin) lost permissions
+    let result = std::panic::catch_unwind(|| {
+        client.pause_group(&new_admin, &group_id);
+    });
+    assert!(result.is_err(), "Second admin should not be able to pause after transfer");
+
+    // Verify third admin has full permissions
+    client.pause_group(&third_admin, &group_id);
+    assert_eq!(client.get_group(&group_id).status, GroupStatus::Paused);
+}
