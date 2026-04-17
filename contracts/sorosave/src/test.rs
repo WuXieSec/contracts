@@ -222,3 +222,79 @@ fn test_set_group_admin() {
     let group = client.get_group(&group_id);
     assert_eq!(group.admin, new_admin);
 }
+
+#[test]
+#[should_panic(expected = "AlreadyContributed")]
+fn test_double_contribution_prevention() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+    
+    let member1 = Address::generate(&env);
+    client.join_group(&member1, &group_id);
+    client.start_group(&admin, &group_id);
+    
+    // Mint tokens for contributions
+    let token_client = token::Client::new(&env, &token);
+    token_client.mint(&admin, &10_000_000);
+    token_client.mint(&member1, &10_000_000);
+    
+    // First contribution (should succeed)
+    client.contribute(&admin, &group_id);
+    
+    // Second contribution in same round (should fail)
+    client.contribute(&admin, &group_id);
+}
+
+#[test]
+fn test_contribution_once_per_round() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+    
+    let member1 = Address::generate(&env);
+    client.join_group(&member1, &group_id);
+    client.start_group(&admin, &group_id);
+    
+    // Mint tokens
+    let token_client = token::Client::new(&env, &token);
+    token_client.mint(&admin, &10_000_000);
+    token_client.mint(&member1, &10_000_000);
+    
+    // Both members contribute once (should succeed)
+    client.contribute(&admin, &group_id);
+    client.contribute(&member1, &group_id);
+    
+    // Verify round is complete
+    let group = client.get_group(&group_id);
+    assert_eq!(group.current_round, 1);
+}
+
+#[test]
+fn test_contribution_tracking() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+    
+    let member1 = Address::generate(&env);
+    client.join_group(&member1, &group_id);
+    client.start_group(&admin, &group_id);
+    
+    // Mint tokens
+    let token_client = token::Client::new(&env, &token);
+    token_client.mint(&admin, &10_000_000);
+    token_client.mint(&member1, &10_000_000);
+    
+    // Admin contributes
+    client.contribute(&admin, &group_id);
+    
+    // Verify only admin has contributed
+    let round = client.get_round(&group_id, &1);
+    assert!(round.contributions.contains_key(admin.clone()));
+    assert!(!round.contributions.contains_key(member1.clone()));
+    
+    // Member1 contributes
+    client.contribute(&member1, &group_id);
+    
+    // Verify both have contributed
+    let round = client.get_round(&group_id, &1);
+    assert!(round.contributions.contains_key(admin.clone()));
+    assert!(round.contributions.contains_key(member1.clone()));
+}
