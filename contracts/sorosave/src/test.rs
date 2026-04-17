@@ -222,3 +222,49 @@ fn test_set_group_admin() {
     let group = client.get_group(&group_id);
     assert_eq!(group.admin, new_admin);
 }
+
+#[test]
+fn test_has_contributed_current_round() {
+    let (env, admin, client, token) = setup_env();
+    
+    // Setup token we can mint from
+    let mint_admin = Address::generate(&env);
+    let token_id = env.register_stellar_asset_contract_v2(mint_admin.clone());
+    let token_sac = StellarAssetClient::new(&env, &token_id.address());
+    
+    let member1 = Address::generate(&env);
+    token_sac.mint(&admin, &10_000_000);
+    token_sac.mint(&member1, &10_000_000);
+    
+    let group_id = client.create_group(
+        &admin,
+        &String::from_str(&env, "Test Group"),
+        &token_id.address(),
+        &1_000_000,
+        &86400,
+        &5,
+    );
+    client.join_group(&member1, &group_id);
+    
+    // Before starting group, should return false
+    assert_eq!(client.has_contributed_current_round(&admin, &group_id).unwrap(), false);
+    
+    client.start_group(&admin, &group_id);
+    
+    // After starting, admin hasn't contributed yet
+    assert_eq!(client.has_contributed_current_round(&admin, &group_id).unwrap(), false);
+    assert_eq!(client.has_contributed_current_round(&member1, &group_id).unwrap(), false);
+    
+    // Admin contributes
+    client.contribute(&admin, &group_id);
+    assert_eq!(client.has_contributed_current_round(&admin, &group_id).unwrap(), true);
+    assert_eq!(client.has_contributed_current_round(&member1, &group_id).unwrap(), false);
+    
+    // Member1 contributes
+    client.contribute(&member1, &group_id);
+    assert_eq!(client.has_contributed_current_round(&member1, &group_id).unwrap(), true);
+    
+    // Test non-member returns false
+    let non_member = Address::generate(&env);
+    assert_eq!(client.has_contributed_current_round(&non_member, &group_id).unwrap(), false);
+}

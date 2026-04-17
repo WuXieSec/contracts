@@ -78,3 +78,34 @@ pub fn has_contributed(
         storage::get_round(env, group_id, round).ok_or(ContractError::RoundNotActive)?;
     Ok(round_info.contributions.contains_key(member))
 }
+
+pub fn has_contributed_current_round(
+    env: &Env,
+    member: Address,
+    group_id: u64,
+) -> Result<bool, ContractError> {
+    let group = storage::get_group(env, group_id).ok_or(ContractError::GroupNotFound)?;
+
+    // Return false if group is not active
+    if group.status != GroupStatus::Active {
+        return Ok(false);
+    }
+
+    // Return false if member is not in the group
+    let mut is_member = false;
+    for m in group.members.iter() {
+        if m == member {
+            is_member = true;
+            break;
+        }
+    }
+    if !is_member {
+        return Ok(false);
+    }
+
+    // Check current round contribution
+    let round_info = storage::get_round(env, group_id, group.current_round)
+        .ok_or(ContractError::RoundNotActive)?;
+    
+    Ok(round_info.contributions.contains_key(member))
+}

@@ -100,6 +100,15 @@ impl SoroSaveContract {
         contribution::has_contributed(&env, member, group_id, round)
     }
 
+    /// Check if a member has contributed in the current round.
+    pub fn has_contributed_current_round(
+        env: Env,
+        member: Address,
+        group_id: u64,
+    ) -> Result<bool, ContractError> {
+        contribution::has_contributed_current_round(&env, member, group_id)
+    }
+
     // ─── Payouts ────────────────────────────────────────────────────
 
     /// Distribute the pot to the current round's recipient. Anyone can call this
