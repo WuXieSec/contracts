@@ -222,3 +222,62 @@ fn test_set_group_admin() {
     let group = client.get_group(&group_id);
     assert_eq!(group.admin, new_admin);
 }
+
+#[test]
+fn test_member_join_event() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+    
+    let member1 = Address::generate(&env);
+    
+    // Join and verify event
+    client.join_group(&member1, &group_id);
+    
+    let events = env.events().all();
+    let join_event = events.last().unwrap();
+    
+    // Verify event structure: (topic, (group_id, member, timestamp, member_count))
+    assert!(join_event.0.contains(&symbol_short!("mem_join")));
+}
+
+#[test]
+fn test_member_leave_event() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+    
+    let member1 = Address::generate(&env);
+    client.join_group(&member1, &group_id);
+    
+    // Leave and verify event
+    client.leave_group(&member1, &group_id);
+    
+    let events = env.events().all();
+    let leave_event = events.last().unwrap();
+    
+    // Verify event structure: (topic, (group_id, member, timestamp, member_count))
+    assert!(leave_event.0.contains(&symbol_short!("mem_leav")));
+}
+
+#[test]
+fn test_member_count_in_events() {
+    let (env, admin, client, token) = setup_env();
+    let group_id = create_test_group(&env, &client, &admin, &token);
+    
+    let member1 = Address::generate(&env);
+    let member2 = Address::generate(&env);
+    
+    // Join member1 (count should be 2: admin + member1)
+    client.join_group(&member1, &group_id);
+    let group = client.get_group(&group_id);
+    assert_eq!(group.members.len(), 2);
+    
+    // Join member2 (count should be 3)
+    client.join_group(&member2, &group_id);
+    let group = client.get_group(&group_id);
+    assert_eq!(group.members.len(), 3);
+    
+    // Leave member1 (count should be 2)
+    client.leave_group(&member1, &group_id);
+    let group = client.get_group(&group_id);
+    assert_eq!(group.members.len(), 2);
+}

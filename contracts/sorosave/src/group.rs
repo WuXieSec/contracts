@@ -78,7 +78,10 @@ pub fn join_group(env: &Env, member: Address, group_id: u64) -> Result<(), Contr
     storage::add_member_group(env, &member, group_id);
 
     env.events()
-        .publish((crate::symbol_short!("grp_join"),), (group_id, member));
+        .publish(
+            (crate::symbol_short!("mem_join"),),
+            (group_id, member, env.ledger().timestamp(), group.members.len()),
+        );
 
     Ok(())
 }
@@ -116,7 +119,10 @@ pub fn leave_group(env: &Env, member: Address, group_id: u64) -> Result<(), Cont
     storage::remove_member_group(env, &member, group_id);
 
     env.events()
-        .publish((crate::symbol_short!("grp_leav"),), (group_id, member));
+        .publish(
+            (crate::symbol_short!("mem_leav"),),
+            (group_id, member, env.ledger().timestamp(), group.members.len()),
+        );
 
     Ok(())
 }
